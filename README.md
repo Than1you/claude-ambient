@@ -62,7 +62,7 @@ Then add this entry under `"hooks"` in `~/.claude/settings.json`:
 
 That's it. Claude Code hot-reloads the config — your next prompt is already time-aware. **No `pip`, no installer script, no build, no daemon.**
 
-> **Windows:** swap `~/.claude/...` for `%USERPROFILE%\.claude\...` and `python3` → `python`.
+> **Windows:** swap `~/.claude/...` for `%USERPROFILE%\.claude\...` and `python3` → `python`. Also run `pip install tzdata` once — Windows Python's `zoneinfo` doesn't ship the IANA timezone database, but Linux and macOS do.
 
 ## 🎁 What gets injected
 

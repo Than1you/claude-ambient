@@ -23,7 +23,7 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pytest pytest-cov ruff
+          pip install pytest pytest-cov ruff tzdata
       - name: Lint with ruff
         run: ruff check claude_ambient.py tests/
       - name: Run tests
