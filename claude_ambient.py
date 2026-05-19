@@ -182,6 +182,58 @@ def resolve_timezone(config: dict) -> ZoneInfo:
     return ZoneInfo("UTC")
 
 
+# ---------------------------------------------------------------------------
+# Signals
+# ---------------------------------------------------------------------------
+
+class TimeSignal(Signal):
+    """Emit the current local time (ISO 8601 + day-of-week + IANA name)."""
+
+    name = "time"
+
+    def collect(self, ctx: SignalContext) -> Optional[str]:
+        cfg = ctx.config["signals"]["time"]
+        if not cfg.get("enabled", True):
+            return None
+
+        iso = ctx.now.isoformat(timespec="seconds")
+        if cfg.get("format") == "iso":
+            return f"[time] {iso}"
+
+        day = ctx.now.strftime("%A")
+        tz_abbrev = ctx.now.strftime("%Z") or "?"
+        tz_name = getattr(ctx.now.tzinfo, "key", str(ctx.now.tzinfo))
+
+        head = f"[time] {iso} ({day}, {tz_abbrev}, {tz_name})"
+
+        secondary = ctx.config.get("secondary_timezones", [])
+        if secondary:
+            extras = self._render_secondary(ctx.now, secondary)
+            if extras:
+                head += f" (also: {extras})"
+        return head
+
+    @staticmethod
+    def _render_secondary(now: datetime, zones: list) -> str:
+        primary_date = now.date()
+        parts = []
+        for zname in zones:
+            try:
+                z = ZoneInfo(zname)
+            except ZoneInfoNotFoundError:
+                continue
+            in_zone = now.astimezone(z)
+            delta_days = (in_zone.date() - primary_date).days
+            if delta_days > 0:
+                suffix = f"+{delta_days}"
+            elif delta_days < 0:
+                suffix = str(delta_days)
+            else:
+                suffix = ""
+            parts.append(f"{in_zone.strftime('%H:%M')}{suffix} {zname}")
+        return ", ".join(parts)
+
+
 def main() -> int:
     return 0
 
