@@ -39,6 +39,70 @@ class Signal(ABC):
         """Return a single-line fragment to inject, or None to skip."""
 
 
+import copy
+import json
+import os
+from pathlib import Path
+
+
+# ---------------------------------------------------------------------------
+# Config
+# ---------------------------------------------------------------------------
+
+DEFAULT_CONFIG: dict = {
+    "schema_version": 1,
+    "timezone": None,
+    "secondary_timezones": [],
+    "signals": {
+        "time":      {"enabled": True,  "format": "iso_human"},
+        "rhythm":    {"enabled": True},
+        "system":    {"enabled": False, "battery_threshold_pct": 20, "disk_threshold_pct": 10},
+        "calendar":  {"enabled": False, "window_minutes": 90},
+        "deadlines": {"enabled": False},
+    },
+    "output": {
+        "header": False,
+        "compact": False,
+    },
+}
+
+CONFIG_DIR: Path = Path.home() / ".claude" / "claude-ambient"
+CONFIG_PATH: Path = CONFIG_DIR / "config.json"
+
+
+def _deep_merge(default: dict, user: dict) -> dict:
+    """Return a new dict with user values overlaid onto default, recursively."""
+    out: dict = {}
+    for key, dval in default.items():
+        if key not in user:
+            out[key] = copy.deepcopy(dval)
+        elif isinstance(dval, dict) and isinstance(user[key], dict):
+            out[key] = _deep_merge(dval, user[key])
+        else:
+            out[key] = user[key]
+    # surface unknown user keys at the end (they are ignored downstream but
+    # preserved so we don't silently drop user data on rewrite)
+    for key, uval in user.items():
+        if key not in default:
+            out[key] = uval
+    return out
+
+
+def load_config() -> dict:
+    """Return the merged config dict, creating the default file if absent."""
+    if not CONFIG_PATH.exists():
+        CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+        CONFIG_PATH.write_text(json.dumps(DEFAULT_CONFIG, indent=2))
+        return copy.deepcopy(DEFAULT_CONFIG)
+    try:
+        user = json.loads(CONFIG_PATH.read_text())
+    except (json.JSONDecodeError, OSError):
+        return copy.deepcopy(DEFAULT_CONFIG)
+    if not isinstance(user, dict):
+        return copy.deepcopy(DEFAULT_CONFIG)
+    return _deep_merge(DEFAULT_CONFIG, user)
+
+
 def main() -> int:
     return 0
 
