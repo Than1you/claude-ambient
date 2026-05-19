@@ -1,5 +1,7 @@
 <h1 align="center">claude-ambient</h1>
 
+<p align="center"><strong>Time-aware ambient context for Claude Code.</strong></p>
+
 <p align="center">
   <em>Claude doesn't know what time it is. Or what day. Or how long since you last asked.<br/>Until now.</em>
 </p>
@@ -33,7 +35,7 @@ Claude Code's system prompt has a date. **One date.** Stamped at session start. 
 - 3 days have passed? Claude *also* doesn't know.
 - Did DST flip last night? Friday at 11pm vs Saturday at 1am? Crickets.
 
-So when you say "今晚" / "earlier today" / "this weekend", Claude is guessing. When you come back from a 3-day trip, Claude treats it like a quick follow-up. When it's 2am, Claude doesn't know to be more careful.
+So when you say "tonight" / "earlier today" / "this weekend", Claude is guessing. When you come back from a 3-day trip, Claude treats it like a quick follow-up. When it's 2am, Claude doesn't know to be more careful.
 
 This is a 50-line problem with a 1-line installer.
 
