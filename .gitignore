@@ -10,3 +10,7 @@ build/
 venv/
 .idea/
 .vscode/
+
+# Internal design docs / implementation plans — kept locally for reference,
+# never committed (exposed absolute paths like /home/<user>/... in their content).
+docs/
