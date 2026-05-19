@@ -8,13 +8,21 @@ License: MIT
 """
 from __future__ import annotations
 
-__version__ = "0.1.0"
-
-
+import copy
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
 from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Optional
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+__version__ = "0.1.0"
 
 
 # ---------------------------------------------------------------------------
@@ -37,12 +45,6 @@ class Signal(ABC):
     @abstractmethod
     def collect(self, ctx: SignalContext) -> Optional[str]:
         """Return a single-line fragment to inject, or None to skip."""
-
-
-import copy
-import json
-import os
-from pathlib import Path
 
 
 # ---------------------------------------------------------------------------
@@ -146,9 +148,6 @@ def _log_error(component: str, err) -> None:
             ERROR_LOG.write_text(line)
     except Exception:
         pass
-
-
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
 # ---------------------------------------------------------------------------
@@ -318,10 +317,6 @@ class RhythmSignal(Signal):
         return "evening"
 
 
-import shutil
-import subprocess
-
-
 class SystemSignal(Signal):
     """Emit a fragment only when battery or free-disk crosses a threshold."""
 
@@ -389,9 +384,6 @@ class SystemSignal(Signal):
             return int(usage.free * 100 / usage.total)
         except Exception:
             return None
-
-
-import re
 
 
 class CalendarSignal(Signal):
@@ -495,9 +487,6 @@ class DeadlinesSignal(Signal):
             if label:
                 out.append((date, label))
         return out
-
-
-import sys
 
 
 # ---------------------------------------------------------------------------

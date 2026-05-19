@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
-from zoneinfo import ZoneInfo
 
 
 def test_one_signal_raising_does_not_break_others(tmp_path, monkeypatch, capsys):

@@ -3,8 +3,6 @@ from __future__ import annotations
 
 import json
 
-import pytest
-
 
 def test_default_config_has_required_keys():
     from claude_ambient import DEFAULT_CONFIG
