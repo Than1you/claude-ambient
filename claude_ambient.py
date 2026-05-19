@@ -132,6 +132,56 @@ def save_state(state: dict) -> None:
     os.replace(tmp, STATE_PATH)
 
 
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
+
+# ---------------------------------------------------------------------------
+# Timezone resolution
+# ---------------------------------------------------------------------------
+
+def _system_timezone() -> Optional[str]:
+    """Best-effort detection of the host's IANA timezone name."""
+    # /etc/timezone (Debian-family)
+    try:
+        text = Path("/etc/timezone").read_text().strip()
+        if text:
+            return text
+    except OSError:
+        pass
+    # /etc/localtime symlink (most modern Linux / macOS)
+    try:
+        link = os.readlink("/etc/localtime")
+        marker = "/zoneinfo/"
+        if marker in link:
+            return link.split(marker, 1)[1]
+    except OSError:
+        pass
+    # Python 3.9+: ZoneInfo("localtime") tries platform-native lookup
+    try:
+        ZoneInfo("localtime")
+        return "localtime"
+    except ZoneInfoNotFoundError:
+        return None
+
+
+def resolve_timezone(config: dict) -> ZoneInfo:
+    """Apply the override chain and return a ZoneInfo, falling back to UTC."""
+    candidates = [
+        config.get("timezone"),
+        os.environ.get("CLAUDE_TZ"),
+        os.environ.get("TZ"),
+        _system_timezone(),
+    ]
+    for name in candidates:
+        if not name:
+            continue
+        try:
+            return ZoneInfo(name)
+        except ZoneInfoNotFoundError:
+            continue
+    return ZoneInfo("UTC")
+
+
 def main() -> int:
     return 0
 
