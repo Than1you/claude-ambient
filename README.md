@@ -19,7 +19,7 @@
 
 ```text
 ┌─ what Claude actually receives, every prompt ────────────────────────────────┐
-│  [time]   2026-05-19T08:42:00-05:00  (Monday, CDT, America/Chicago)          │
+│  [time]   2026-05-19T08:42:00-05:00  (Tuesday, CDT, America/Chicago)         │
 │  [rhythm] Δ since last prompt: 3 days 4 hours · first prompt after gap       │
 │                                                · working hours               │
 └──────────────────────────────────────────────────────────────────────────────┘
@@ -85,7 +85,7 @@ After you've been away:
 Multiple timezones (opt-in, for cross-timezone teams):
 
 ```
-[time]   2026-05-19T14:24:43-05:00 (Monday, CDT, America/Chicago) (also: 19:24 UTC, 03:24+1 Asia/Shanghai)
+[time]   2026-05-19T14:24:43-05:00 (Tuesday, CDT, America/Chicago) (also: 19:24 UTC, 03:24+1 Asia/Shanghai)
 ```
 
 ## 🧱 Signals — five modules, configurable
