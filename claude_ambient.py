@@ -132,6 +132,22 @@ def save_state(state: dict) -> None:
     os.replace(tmp, STATE_PATH)
 
 
+ERROR_LOG: Path = CONFIG_DIR / "error.log"
+
+
+def _log_error(component: str, err) -> None:
+    """Append a single line to error.log; truncate to 1 MB on overflow."""
+    try:
+        ERROR_LOG.parent.mkdir(parents=True, exist_ok=True)
+        line = f"{datetime.now().isoformat(timespec='seconds')} [{component}] {err}\n"
+        with ERROR_LOG.open("a", encoding="utf-8") as fh:
+            fh.write(line)
+        if ERROR_LOG.stat().st_size > 1024 * 1024:
+            ERROR_LOG.write_text(line)
+    except Exception:
+        pass
+
+
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 
@@ -529,7 +545,8 @@ def main() -> int:
     for cls in SIGNAL_REGISTRY:
         try:
             line = cls().collect(ctx)
-        except Exception:
+        except Exception as exc:
+            _log_error(getattr(cls, "name", cls.__name__), exc)
             line = None
         if line:
             fragments.append(line)
