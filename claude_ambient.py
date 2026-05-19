@@ -302,6 +302,79 @@ class RhythmSignal(Signal):
         return "evening"
 
 
+import shutil
+import subprocess
+
+
+class SystemSignal(Signal):
+    """Emit a fragment only when battery or free-disk crosses a threshold."""
+
+    name = "system"
+
+    def collect(self, ctx: SignalContext) -> Optional[str]:
+        cfg = ctx.config["signals"]["system"]
+        if not cfg.get("enabled", False):
+            return None
+
+        battery_thresh = int(cfg.get("battery_threshold_pct", 20))
+        disk_thresh = int(cfg.get("disk_threshold_pct", 10))
+
+        battery = self._read_battery_pct()
+        disk = self._read_disk_free_pct()
+
+        notes = []
+        if battery is not None and battery <= battery_thresh:
+            notes.append(f"battery {battery}% (low)")
+        if disk is not None and disk <= disk_thresh:
+            notes.append(f"disk {disk}% free (low)")
+
+        if not notes:
+            return None
+        return "[system] " + " · ".join(notes)
+
+    # --- Battery ----------------------------------------------------------
+
+    def _read_battery_pct(self) -> Optional[int]:
+        # 1) psutil (best-effort, optional dep)
+        try:
+            import psutil  # type: ignore
+            bat = psutil.sensors_battery()
+            if bat is not None:
+                return int(bat.percent)
+        except Exception:
+            pass
+        # 2) Linux /sys
+        try:
+            for base in Path("/sys/class/power_supply").iterdir():
+                cap = base / "capacity"
+                if cap.exists():
+                    return int(cap.read_text().strip())
+        except Exception:
+            pass
+        # 3) macOS pmset
+        try:
+            out = subprocess.run(
+                ["pmset", "-g", "batt"],
+                capture_output=True, text=True, timeout=1,
+            )
+            for token in out.stdout.split():
+                if token.endswith("%;"):
+                    return int(token.rstrip("%;"))
+        except Exception:
+            pass
+        return None
+
+    # --- Disk -------------------------------------------------------------
+
+    def _read_disk_free_pct(self) -> Optional[int]:
+        target = "C:\\" if os.name == "nt" else "/"
+        try:
+            usage = shutil.disk_usage(target)
+            return int(usage.free * 100 / usage.total)
+        except Exception:
+            return None
+
+
 import sys
 
 
@@ -314,7 +387,7 @@ def _now(tz: ZoneInfo) -> datetime:
     return datetime.now(tz=tz)
 
 
-SIGNAL_REGISTRY = [TimeSignal, RhythmSignal]
+SIGNAL_REGISTRY = [TimeSignal, RhythmSignal, SystemSignal]
 
 
 def _build_context() -> SignalContext:
