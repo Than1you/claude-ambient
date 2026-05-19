@@ -13,7 +13,7 @@ __version__ = "0.1.0"
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional
 
 
@@ -375,6 +375,61 @@ class SystemSignal(Signal):
             return None
 
 
+import re
+
+
+class CalendarSignal(Signal):
+    """Read the next upcoming VEVENT from a local .ics file, if any."""
+
+    name = "calendar"
+
+    DEFAULT_PATH = CONFIG_DIR / "calendar.ics"
+
+    def collect(self, ctx: SignalContext) -> Optional[str]:
+        cfg = ctx.config["signals"]["calendar"]
+        if not cfg.get("enabled", False):
+            return None
+
+        ics_path = Path(cfg.get("_test_ics_path") or self.DEFAULT_PATH)
+        if not ics_path.exists():
+            return None
+
+        window = int(cfg.get("window_minutes", 90))
+        horizon = ctx.now + timedelta(minutes=window)
+
+        events = self._parse_events(ics_path.read_text(), ctx.now.tzinfo)
+        upcoming = [
+            (start, summary) for start, summary in events
+            if ctx.now <= start <= horizon
+        ]
+        if not upcoming:
+            return None
+
+        upcoming.sort(key=lambda x: x[0])
+        start, summary = upcoming[0]
+        minutes = int((start - ctx.now).total_seconds() // 60)
+        return f"[calendar] next: '{summary}' in {minutes} min"
+
+    @staticmethod
+    def _parse_events(text: str, tz) -> list:
+        events: list = []
+        for block in re.findall(r"BEGIN:VEVENT(.*?)END:VEVENT", text, flags=re.DOTALL):
+            summary_m = re.search(r"^SUMMARY:(.+)$", block, flags=re.MULTILINE)
+            dtstart_m = re.search(r"^DTSTART(?:;[^:]*)?:(\S+)", block, flags=re.MULTILINE)
+            if not summary_m or not dtstart_m:
+                continue
+            raw = dtstart_m.group(1).strip()
+            try:
+                if raw.endswith("Z"):
+                    dt = datetime.strptime(raw, "%Y%m%dT%H%M%SZ").replace(tzinfo=ZoneInfo("UTC"))
+                else:
+                    dt = datetime.strptime(raw, "%Y%m%dT%H%M%S").replace(tzinfo=tz)
+            except ValueError:
+                continue
+            events.append((dt.astimezone(tz), summary_m.group(1).strip()))
+        return events
+
+
 import sys
 
 
@@ -387,7 +442,7 @@ def _now(tz: ZoneInfo) -> datetime:
     return datetime.now(tz=tz)
 
 
-SIGNAL_REGISTRY = [TimeSignal, RhythmSignal, SystemSignal]
+SIGNAL_REGISTRY = [TimeSignal, RhythmSignal, SystemSignal, CalendarSignal]
 
 
 def _build_context() -> SignalContext:
