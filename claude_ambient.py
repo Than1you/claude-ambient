@@ -302,7 +302,74 @@ class RhythmSignal(Signal):
         return "evening"
 
 
+import sys
+
+
+# ---------------------------------------------------------------------------
+# Entry point
+# ---------------------------------------------------------------------------
+
+def _now(tz: ZoneInfo) -> datetime:
+    """Indirection so tests can monkeypatch the clock."""
+    return datetime.now(tz=tz)
+
+
+SIGNAL_REGISTRY = [TimeSignal, RhythmSignal]
+
+
+def _build_context() -> SignalContext:
+    config = load_config()
+    state = load_state()
+    tz = resolve_timezone(config)
+    now = _now(tz)
+    return SignalContext(now=now, state=state, config=config)
+
+
+def _join_fragments(fragments: list, config: dict) -> str:
+    sep = " · " if config.get("output", {}).get("compact", False) else "\n"
+    text = sep.join(fragments)
+    if len(text) > 1024:
+        text = text[:1020] + "..."
+    return text
+
+
 def main() -> int:
+    try:
+        ctx = _build_context()
+    except Exception:
+        # Even context build failure must not break the user's prompt.
+        sys.stdout.write(json.dumps({
+            "hookSpecificOutput": {
+                "hookEventName": "UserPromptSubmit",
+                "additionalContext": "",
+            }
+        }))
+        return 0
+
+    fragments: list = []
+    for cls in SIGNAL_REGISTRY:
+        try:
+            line = cls().collect(ctx)
+        except Exception:
+            line = None
+        if line:
+            fragments.append(line)
+
+    payload = {
+        "hookSpecificOutput": {
+            "hookEventName": "UserPromptSubmit",
+            "additionalContext": _join_fragments(fragments, ctx.config),
+        }
+    }
+    sys.stdout.write(json.dumps(payload))
+
+    try:
+        new_state = dict(ctx.state)
+        new_state["last_prompt_at"] = ctx.now.isoformat(timespec="seconds")
+        save_state(new_state)
+    except Exception:
+        pass
+
     return 0
 
 
