@@ -234,6 +234,74 @@ class TimeSignal(Signal):
         return ", ".join(parts)
 
 
+class RhythmSignal(Signal):
+    """Emit Δt-since-last-prompt + a derived energy/period label."""
+
+    name = "rhythm"
+
+    def collect(self, ctx: SignalContext) -> Optional[str]:
+        cfg = ctx.config["signals"]["rhythm"]
+        if not cfg.get("enabled", True):
+            return None
+
+        delta_str, is_long_gap = self._render_delta(ctx)
+        label = self._energy_label(ctx.now)
+
+        parts = [f"Δ since last prompt: {delta_str}"]
+        if is_long_gap:
+            parts.append("first prompt after gap")
+        parts.append(label)
+        return "[rhythm] " + " · ".join(parts)
+
+    @staticmethod
+    def _render_delta(ctx: SignalContext) -> tuple:
+        last = ctx.state.get("last_prompt_at")
+        if not last:
+            return "first prompt (no prior state)", False
+        try:
+            last_dt = datetime.fromisoformat(last)
+        except ValueError:
+            return "first prompt (no prior state)", False
+        if last_dt.tzinfo is None and ctx.now.tzinfo is not None:
+            last_dt = last_dt.replace(tzinfo=ctx.now.tzinfo)
+        delta = ctx.now - last_dt
+        secs = int(delta.total_seconds())
+        if secs < 0:
+            # Clock went backwards (DST fall-back or system clock fix); treat as just now.
+            return "just now", False
+        if secs < 60:
+            return "just now", False
+        if secs < 3600:
+            return f"{secs // 60} min", False
+        if secs < 86400:
+            h, rem = divmod(secs, 3600)
+            m = rem // 60
+            return f"{h} hours {m} min", False
+        days, rem = divmod(secs, 86400)
+        hrs = rem // 3600
+        return f"{days} days {hrs} hours", True
+
+    @staticmethod
+    def _energy_label(now: datetime) -> str:
+        h = now.hour
+        is_weekend = now.weekday() >= 5  # 5=Sat, 6=Sun
+        if is_weekend:
+            if 5 <= h < 12:
+                return "weekend morning"
+            if 12 <= h < 18:
+                return "weekend afternoon"
+            if 18 <= h < 22:
+                return "weekend evening"
+            return "weekend late night"
+        if h >= 22 or h < 5:
+            return "late night"
+        if h < 8:
+            return "early morning"
+        if h < 18:
+            return "working hours"
+        return "evening"
+
+
 def main() -> int:
     return 0
 
