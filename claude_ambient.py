@@ -430,6 +430,57 @@ class CalendarSignal(Signal):
         return events
 
 
+class DeadlinesSignal(Signal):
+    """Read date|label deadlines from a local file; show days remaining."""
+
+    name = "deadlines"
+
+    DEFAULT_PATH = CONFIG_DIR / "deadlines.txt"
+
+    def collect(self, ctx: SignalContext) -> Optional[str]:
+        cfg = ctx.config["signals"]["deadlines"]
+        if not cfg.get("enabled", False):
+            return None
+
+        path = Path(cfg.get("_test_file") or self.DEFAULT_PATH)
+        if not path.exists():
+            return None
+
+        entries = self._parse(path.read_text())
+        today = ctx.now.date()
+        kept = []
+        for date, label in entries:
+            delta_days = (date - today).days
+            if delta_days < -1:
+                continue
+            if delta_days < 0:
+                kept.append((delta_days, f"{label}: {delta_days} day"))
+            else:
+                kept.append((delta_days, f"{label}: {delta_days} days"))
+        if not kept:
+            return None
+        kept.sort(key=lambda x: x[0])
+        return "[deadlines] " + " · ".join(item for _, item in kept)
+
+    @staticmethod
+    def _parse(text: str) -> list:
+        out = []
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "|" not in line:
+                continue
+            date_str, label = (s.strip() for s in line.split("|", 1))
+            try:
+                date = datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                continue
+            if label:
+                out.append((date, label))
+        return out
+
+
 import sys
 
 
@@ -442,7 +493,7 @@ def _now(tz: ZoneInfo) -> datetime:
     return datetime.now(tz=tz)
 
 
-SIGNAL_REGISTRY = [TimeSignal, RhythmSignal, SystemSignal, CalendarSignal]
+SIGNAL_REGISTRY = [TimeSignal, RhythmSignal, SystemSignal, CalendarSignal, DeadlinesSignal]
 
 
 def _build_context() -> SignalContext:
