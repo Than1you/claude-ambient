@@ -103,6 +103,35 @@ def load_config() -> dict:
     return _deep_merge(DEFAULT_CONFIG, user)
 
 
+# ---------------------------------------------------------------------------
+# State
+# ---------------------------------------------------------------------------
+
+STATE_PATH: Path = CONFIG_DIR / "state.json"
+
+
+def load_state() -> dict:
+    """Return persisted state, or a fresh empty state on missing/corrupt file."""
+    fresh = {"schema_version": 1}
+    if not STATE_PATH.exists():
+        return fresh
+    try:
+        data = json.loads(STATE_PATH.read_text())
+    except (json.JSONDecodeError, OSError):
+        return fresh
+    if not isinstance(data, dict):
+        return fresh
+    return data
+
+
+def save_state(state: dict) -> None:
+    """Persist state atomically: write to .tmp, then os.replace into place."""
+    CONFIG_DIR.mkdir(parents=True, exist_ok=True)
+    tmp = STATE_PATH.with_suffix(STATE_PATH.suffix + ".tmp")
+    tmp.write_text(json.dumps(state))
+    os.replace(tmp, STATE_PATH)
+
+
 def main() -> int:
     return 0
 
